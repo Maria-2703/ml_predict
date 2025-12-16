@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Resultado — Titanic Predictor</title>
+
+<style>
+/* ---------- Fuentes ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:wght@600;800&display=swap');
+
+/* ---------- Reset minimal ---------- */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+
+/* ---------- Fondo cinematográfico (sin imágenes externas rotas) ---------- */
+:root{
+  --gold:#d4af37;
+  --gold-dark:#b88a1c;
+  --ivory:#fff7e6;
+  --ink:#0b1220;
+  --glass: rgba(255,255,255,0.06);
+}
+
+body{
+  font-family: "Playfair Display", serif;
+  background: radial-gradient(ellipse at 20% 10%, #073057 0%, #021123 35%, #000814 100%);
+  color: var(--ivory);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* ---------- Stars (SVG tile via data URI) ---------- */
+.starry {
+  position:fixed; inset:0; z-index:-6; pointer-events:none;
+  background-image:
+    radial-gradient(circle at 20% 15%, rgba(255,255,255,0.22) 0 1px, transparent 1px),
+    radial-gradient(circle at 80% 40%, rgba(255,255,255,0.14) 0 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, rgba(255,255,255,0.1) 0 1px, transparent 1px);
+  background-size: 1000px 1000px;
+  opacity:0.25;
+  animation: starShift 30s linear infinite;
+}
+@keyframes starShift { from {transform:translateY(0)} to {transform:translateY(-120px)} }
+
+/* ---------- Fog & parallax ocean ---------- */
+.fog {
+  position:fixed; inset:0; z-index:-4; pointer-events:none;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0) 35%);
+  backdrop-filter: blur(2px);
+  opacity:0.7;
+  mix-blend-mode: screen;
+}
+.ocean {
+  position:fixed; left:0; right:0; bottom:0; height:220px; z-index:-3; overflow:hidden;
+  background: linear-gradient(180deg, rgba(0,8,20,0.0), rgba(0,6,12,1) 60%);
+}
+.wave {
+  position:absolute; left:50%; transform:translateX(-50%);
+  width:160%; height:180px; bottom:-40px; border-radius:45%;
+  background: radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.06), rgba(255,255,255,0.01));
+  filter: blur(14px);
+  animation: roll 9s ease-in-out infinite;
+  opacity:0.6;
+}
+.wave.wave-2 { animation-duration:14s; opacity:0.35; filter:blur(18px); bottom:-10px; }
+
+/* slight movement to evoke motion */
+@keyframes roll {
+  0% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+  50% { transform: translateX(-52%) translateY(10px) rotate(-1deg); }
+  100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+}
+
+/* ---------- Lighthouse beam ---------- */
+.lighthouse {
+  position:fixed; right:6vw; top:10vh; width:220px; height:220px; z-index:-2; pointer-events:none;
+}
+.lighthouse::before{
+  content:""; position:absolute; left:50%; top:50%; width:900px; height:900px; transform-origin:center;
+  background: conic-gradient(from 60deg, rgba(255,248,220,0.12) 0 8deg, rgba(255,248,220,0.02) 8deg 20deg, transparent 20deg 360deg);
+  transform: translate(-50%,-50%) rotate(0deg);
+  filter: blur(32px);
+  animation: beam 12s linear infinite;
+}
+@keyframes beam { from {transform: translate(-50%,-50%) rotate(0deg)} to {transform: translate(-50%,-50%) rotate(360deg)} }
+
+/* ---------- Compass ---------- */
+.compass {
+  position:fixed; left:28px; bottom:28px; width:112px; height:112px; z-index:10;
+  border-radius:50%; background: linear-gradient(180deg,#0d1a22, #071018);
+  border:4px solid var(--gold); display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.7), inset 0 0 30px rgba(255,255,255,0.02);
+  transform-origin:center; animation: slowspin 28s linear infinite;
+}
+.compass .needle { width:4px; height:46px; background:var(--gold); transform-origin:bottom; border-radius:2px; box-shadow:0 0 8px rgba(212,175,55,0.7) }
+
+/* ---------- Page container ---------- */
+.container {
+  max-width:1100px;
+  margin: 56px auto;
+  padding: 28px;
+  display:grid;
+  grid-template-columns: 1fr 420px;
+  gap: 28px;
+  align-items:start;
+  z-index:2;
+  position:relative;
+}
+
+/* Left column: paper + content */
+.paper {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.05)),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><defs><filter id='g'><feTurbulence baseFrequency='0.8' numOctaves='1' stitchTiles='stitch' result='t'/><feColorMatrix type='saturate' values='0'/></filter></defs><rect width='100%' height='100%' fill='%23f7efe3' filter='url(%23g)' opacity='0.02'/></svg>");
+  border-radius:18px;
+  border: 3px solid rgba(212,175,55,0.12);
+  padding:28px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6), inset 0 0 40px rgba(255,255,255,0.02);
+  color: #111827;
+  min-height:360px;
+  transform: translateY(0);
+  transition: transform .5s cubic-bezier(.2,.9,.2,1);
+}
+
+/* paper header (vintage ribbon) */
+.paper .header {
+  display:flex; align-items:center; gap:16px; margin-bottom:14px;
+}
+.logo-circle {
+  width:72px; height:72px; border-radius:50%;
+  background: linear-gradient(180deg,var(--gold), var(--gold-dark));
+  display:flex; align-items:center; justify-content:center;
+  color:#001219; font-weight:800; font-family:"Cinzel", serif; box-shadow:0 6px 18px rgba(0,0,0,0.45);
+}
+.title {
+  font-size:1.6rem; font-weight:700; color: #fff6dc; letter-spacing:1px;
+}
+
+/* old paper style content box */
+.paper .content {
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.82));
+  border-radius:12px; padding:20px; color:#0b1220;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,0.4);
+  line-height:1.45; font-size:1.05rem;
+}
+
+/* stylized quote bar */
+.paper .quote {
+  margin-top:12px;
+  padding:12px;
+  border-left:4px solid var(--gold);
+  background: linear-gradient(180deg, rgba(212,175,55,0.02), transparent);
+  font-style: italic;
+  color:#2b2b2b;
+}
+
+/* Right column: photo + controls */
+.right {
+  display:flex; flex-direction:column; gap:18px; align-items:center;
+  position:relative;
+}
+
+/* photo frame gold 3D */
+.photo-frame {
+  width:360px; height:420px; border-radius:14px;
+  padding:18px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.32));
+  border-radius:18px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  display:flex; align-items:center; justify-content:center;
+  transform-style:preserve-3d;
+  perspective:1200px;
+}
+
+/* inner gold rim */
+.photo-frame .rim {
+  width:100%; height:100%; border-radius:10px; padding:12px; box-sizing:border-box;
+  background:
+    linear-gradient(180deg, rgba(212,175,55,0.95), rgba(180,130,30,0.95));
+  border-radius:10px;
+  box-shadow: inset 0 2px 8px rgba(255,255,255,0.18), 0 8px 22px rgba(0,0,0,0.6);
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* actual image with decorative overlay */
+.photo {
+  width:100%; height:100%; border-radius:6px; overflow:hidden; background:#111;
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+}
+.photo img {
+  max-width:100%; max-height:100%; object-fit:cover; display:block;
+}
+
+/* small caption */
+.caption { margin-top:6px; color:#eae3c9; font-size:0.95rem; }
+
+/* status badge */
+.badge {
+  margin-top:10px; padding:8px 14px; border-radius:10px; font-weight:700;
+  color:#001219; background: linear-gradient(180deg,var(--gold), var(--gold-dark));
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  letter-spacing:1px;
+}
+
+/* controls */
+.controls { width:100%; display:flex; gap:12px; align-items:center; justify-content:center; margin-top:6px; flex-wrap:wrap; }
+.btn {
+  padding:10px 16px; border-radius:10px; background:var(--glass); border:1px solid rgba(255,255,255,0.06); color:var(--ivory);
+  cursor:pointer; transition: all .22s ease;
+}
+.btn:hover { transform:translateY(-3px); box-shadow:0 8px 22px rgba(0,0,0,0.6) }
+
+/* back button */
+.back-btn { padding:10px 16px; border-radius:10px; background: linear-gradient(180deg,#fff6dd, #e5cf85); color:#001219; font-weight:700; border:1px solid rgba(0,0,0,0.12) }
+
+/* subtle animations */
+.paper:hover { transform:translateY(-6px) }
+
+/* responsive */
+@media (max-width:980px){
+  .container{ grid-template-columns: 1fr; padding: 20px }
+  .right { order:-1; }
+  .photo-frame { width:100%; height:360px }
+}
+
+/* ---------- little decorative separators ---------- */
+.sep {
+  height:1px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.55), transparent); margin:16px 0;
+  border-radius:4px;
+}
+
+/* ---------- fallback SVG placeholder for missing images ---------- */
+</style>
+</head>
+<body>
+
+<!-- decorative layers -->
+<div class="starry" aria-hidden="true"></div>
+<div class="fog" aria-hidden="true"></div>
+<div class="ocean" aria-hidden="true">
+  <div class="wave wave-1"></div>
+  <div class="wave wave-2"></div>
+</div>
+
+<!-- lighthouse (pure CSS beam) -->
+<div class="lighthouse" aria-hidden="true"></div>
+
+<!-- compass -->
+<div class="compass" aria-hidden="true">
+  <div class="needle" style="transform:rotate(45deg)"></div>
+</div>
+
+<!-- MAIN -->
+<div class="container" role="main" aria-labelledby="result-title">
+
+  <!-- Left: Paper with prediction -->
+  <section class="paper" aria-labelledby="result-title">
+    <div class="header">
+      <div class="logo-circle" aria-hidden="true">R</div>
+      <div>
+        <div class="title" id="result-title">RMS TITANIC — Predicción</div>
+        <div style="font-size:0.88rem; color:#e6d9b1; margin-top:6px">Modelo: Vision → Titanic Classifier</div>
+      </div>
+    </div>
+
+    <div class="content" role="article" aria-live="polite" id="prediction-area">
+      <!-- Jinja: show greeting + poema -->
+      {% if nombre %}
+        <strong style="font-size:1.05rem">Hola {{ nombre }},</strong>
+        <p style="margin-top:8px">Aquí tienes la evaluación del pasajero analizado por el sistema.</p>
+      {% else %}
+        <p>Resultado del análisis de imagen:</p>
+      {% endif %}
+
+      <div class="sep" aria-hidden="true"></div>
+
+      {% if poema %}
+        <!-- poema contiene el texto de la predicción generado por Flask (por ejemplo: "Para ...") -->
+        <div style="white-space:pre-wrap; font-size:1rem; color:#111;">
+          {{ poema | safe }}
+        </div>
+      {% else %}
+        <div style="color:#333; font-style:italic">No se generó ninguna predicción. Intenta subir otra imagen.</div>
+      {% endif %}
+
+      <div class="quote">
+        <strong>Nota histórica:</strong> Las decisiones de clase y salvamento en 1912 fueron complejas — esta predicción es un ejercicio hipotético inspirado en la estética y datos.
+      </div>
+    </div>
+
+    <div class="sep" aria-hidden="true"></div>
+
+    <!-- Extra info / legend -->
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+      <div style="flex:1; min-width:160px;">
+        <strong style="color:#0b1220">Leyenda</strong>
+        <ul style="margin-top:8px; color:#2d2d2d; font-size:0.95rem;">
+          <li><strong>sex</strong>: 0 = mujer, 1 = hombre</li>
+          <li><strong>age</strong>: edad estimada (años)</li>
+          <li><strong>class</strong>: 1 = primera, 2 = segunda, 3 = tercera</li>
+        </ul>
+      </div>
+
+      <div style="flex:1; min-width:160px;">
+        <strong style="color:#0b1220">Consejo</strong>
+        <p style="margin-top:8px; color:#2d2d2d; font-size:0.95rem">Si la imagen no carga, revisa que la URL sea accesible públicamente (empiece por http/https). Si no, el marco mostrará un retrato clásico.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Right: Photo + controls -->
+  <aside class="right" aria-label="Imagen y controles">
+    <div class="photo-frame" role="img" aria-label="Imagen del pasajero">
+      <div class="rim">
+        <div class="photo" id="photoBox">
+          <!-- Image: uses Jinja url and fallback onerror to a decorative SVG (no external broken images) -->
+          <img id="subjectImg" src="{{ img_url }}" alt="Imagen analizada"
+               onerror="this.onerror=null; this.src='data:image/svg+xml;charset=utf-8,<?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?><svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 600 800&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%230a0f16&quot;/><g fill=&quot;%23d4af37&quot; opacity=&quot;0.95&quot;><rect x=&quot;40&quot; y=&quot;40&quot; width=&quot;520&quot; height=&quot;720&quot; rx=&quot;8&quot; ry=&quot;8&quot; stroke=&quot;%23ffd&quot; stroke-width=&quot;2&quot; fill=&quot;%23f4eccf&quot;/><text x=&quot;50%&quot; y=&quot;48%&quot; font-family=&quot;Playfair Display, serif&quot; font-size=&quot;28&quot; fill=&quot;%23000&quot; text-anchor=&quot;middle&quot;>&quot;Imagen no disponible&quot;</text><text x=&quot;50%&quot; y=&quot;56%&quot; font-family=&quot;Playfair Display, serif&quot; font-size=&quot;18&quot; fill=&quot;%23000&quot; text-anchor=&quot;middle&quot;>Usa otra URL pública</text></g></svg>';" />
+        </div>
+      </div>
+    </div>
+
+    <div class="caption">Previsualización del pasajero</div>
+
+    <!-- status badge showing quick parsed values (we pull them via poema parsing on server; here just visual badge fallback) -->
+    <div id="statusBadge" class="badge" aria-live="polite">
+      Resultado: <span id="statusText">Ver predicción</span>
+    </div>
+
+    <div class="controls">
+      <form action="{{url_for('home')}}" method="get" style="display:inline">
+        <button class="back-btn" type="submit">⟵ Volver al Inicio</button>
+      </form>
+
+      <!-- Music control (optional, off by default) -->
+      <button class="btn" id="musicToggle" onclick="toggleMusic()">
+        🎻 Encender música
+      </button>
+
+      <!-- download/inspect toggles (purely client-side) -->
+      <button class="btn" id="inspectBtn" onclick="showDetails()">🔍 Ver detalles</button>
+    </div>
+
+    <!-- small footer -->
+    <div style="font-size:0.86rem; color:#e6d9b1; margin-top:10px; text-align:center">
+      RMS Titanic — Estética 1912 · UI by your friendly dev
+    </div>
+  </aside>
+</div>
+
+<!-- AUDIO (external track; browser will stream — user must enable) -->
+<audio id="track" loop preload="none">
+  <source src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/ccCommunity/Kai_Engel/Irsens_Tale/Kai_Engel_-_03_-_Snowfall.mp3" type="audio/mpeg">
+  <!-- If you prefer to ship a local file, place it in static and change the src accordingly -->
+</audio>
+
+<!-- Simple script: parse prediction text to show badge, music toggle, details modal -->
+<script>
+/* Toggle music on/off */
+function toggleMusic(){
+  const t = document.getElementById('track');
+  const b = document.getElementById('musicToggle');
+  if(!t) return;
+  if(t.paused){
+    t.play().catch(()=>{ /* autoplay blocked, user gesture required */ });
+    b.textContent = '🔇 Apagar música';
+  } else {
+    t.pause();
+    b.textContent = '🎻 Encender música';
+  }
+}
+
+/* Show details: parse the poema string to extract sex/age/class if present */
+function showDetails(){
+  const poema = `{{ (poema|default('')) | replace('\\n','\\n') | replace("'", "\\'") }}`.trim();
+  let parsed = { sex: '—', age: '—', class: '—' };
+  // try to extract "age X, sexo Y, clase Z" patterns (flexible)
+  try {
+    const s = poema.toLowerCase();
+    const ageMatch = s.match(/age\s*[:=]?\s*(\d{1,3})/) || s.match(/edad\s*(?:[:=]?)\s*(\d{1,3})/);
+    const sexMatch = s.match(/sex\s*[:=]?\s*([01])/) || s.match(/sexo\s*(?:[:=]?)\s*(mujer|hombre|0|1)/);
+    const classMatch = s.match(/class\s*[:=]?\s*([1-3])/) || s.match(/clase\s*(?:[:=]?)\s*([1-3])/);
+
+    if(ageMatch) parsed.age = ageMatch[1];
+    if(sexMatch){
+      let v = sexMatch[1];
+      if(v === 'mujer') parsed.sex = 0;
+      else if(v === 'hombre') parsed.sex = 1;
+      else parsed.sex = (v==='0'||v==='1')?v: parsed.sex;
+    }
+    if(classMatch) parsed.class = classMatch[1];
+  } catch(e){
+    // ignore
+  }
+
+  document.getElementById('statusText').textContent = `sex: ${parsed.sex} · age: ${parsed.age} · class: ${parsed.class}`;
+  alert('Detalles (extraídos heurísticamente):\n' + 'sex: ' + parsed.sex + '\nage: ' + parsed.age + '\nclass: ' + parsed.class + '\n\nSi no aparecen, la predicción no estaba en texto parseable.');
+}
+
+/* small accessibility: if image is missing, set alt text and mark badge */
+document.getElementById('subjectImg').addEventListener('error', function(){
+  document.getElementById('statusText').textContent = 'Imagen no disponible — usa otra URL';
+});
+
+/* On load: if poema contains keywords, update badge quickly */
+window.addEventListener('load', function(){
+  const poemaRaw = `{{ (poema|default('')) | replace('\\n','\\n') | replace("'", "\\'") }}`.trim().toLowerCase();
+  if(poemaRaw.length>0){
+    // quick heuristic to detect "sobrevivio" / "murio"
+    if(poemaRaw.includes('sobreviv') || poemaRaw.includes('surviv')){
+      document.getElementById('statusText').textContent = 'Predicción: Sobrevivió';
+      document.getElementById('statusBadge').style.background = 'linear-gradient(180deg,#b9f7c9,#7ee0a7)';
+      document.getElementById('statusBadge').style.color = '#03220b';
+    } else if(poemaRaw.includes('mur') || poemaRaw.includes('died')){
+      document.getElementById('statusText').textContent = 'Predicción: Murió';
+      document.getElementById('statusBadge').style.background = 'linear-gradient(180deg,#ffd6d6,#ffb6b6)';
+      document.getElementById('statusBadge').style.color = '#2b0000';
+    } else {
+      document.getElementById('statusText').textContent = 'Predicción disponible';
+    }
+  } else {
+    document.getElementById('statusText').textContent = 'Sin predicción';
+  }
+});
+</script>
+
+</body>
+</html>
+
+
